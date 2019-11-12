@@ -1,0 +1,551 @@
+---
+title: "Assignment 2"
+author: "Alicia Halhed"
+date: "10/10/2019"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#start by attaching the required packages
+library(rentrez)
+library(tidyverse)
+library(Biostrings)
+library(stringr)
+library(msa)
+library(ape)
+library(DECIPHER)
+library(traits)
+library(ggmap)
+#should cite ggmap
+citation("ggmap")
+```
+
+## Part C Instructions  
+Adapting content from this course and your own independent learning to create new research (30 marks)
+This assignment involves 8 components. Please take the time to read over all instructions prior to commencing. You are encouraged to use a modest-sized taxonomic group (e.g. 10-100 species) for this project, but note this is a suggestion and not a requirement; you may analyze a larger group if you wish.
+
+1.	Define a biological question that interests you and that involves phylogeny. Your script should include a short paragraph at the top that explains your question that you want to answer in your mini-project.
+
+  + Please find here a few EXAMPLE questions. You are welcome to pose your own question instead for Part C, so long as it involves phylogeny. For the scope of this assignment, it is fine for the analysis to be of an exploratory and graphical nature, although you are welcome to perform a formal statistical test if you wish. Together with your group members, you will build upon Part C of either your Assignment #1 or #2 during the group project (Assignment #3). At that stage, some groups may wish to add a statistical test.
+  
+    + Do sister species live in the same geographic region or different geographic regions? Geographic phylogenetic patterns may yield insights into the role of allopatric speciation in the evolutionary history of a taxonomic group. To address this question, you would build a phylogenetic tree, a geographic map of the clades of interest, and compare the phylogeny with the map (see link below for one idea about how to create a geophylogeny in R to explore your question). 
+    
+    + Is a given trait phylogenetically conserved? An example would be to use a specific mammal group, obtain trait data from the Pantheria dataset (https://ecologicaldata.org/wiki/pantheria), associated genetic data from NCBI, and then test for phylogenetic conservatism by estimating the lambda parameter using the R package ape. The associated visualization would be to reconstruct the evolutionary history of the trait onto a phylogeny using tools available in the R packages ape, phangorn, or phytools.
+    
+    + Do two genes yield the same or different phylogenetic hypothesis? For this question, you would choose a taxonomic group (of modest size) and build a tree with each of two different genes. Then, you could compare the topology of the trees, such as using functions available through the dendextend package.
+    
+2. Create a phylogenetic hypothesis for a taxonomic group of your choice. For most class members, I recommend using the phylogeny for the genus Daphnia that you created in Part B as your starting point for Part C. That phylogeny would include one sequence per OTU or per species. For advanced users and/or those seeking a challenge, you are welcome to create your own phylogeny on a taxonomic group of your own choosing.
+
+3. Seek out other biological or geographic data for the species in your sequence alignment. Examples could include meta-data from NCBI, geographic data from BOLD, data from GBIF (https://www.gbif.org/), other genetic data from BOLD or GenBank, biological data from a trait dataset (such as Pantheria for mammals or FishBase for fish), or data from another reputable source that you find. (Hint: You might wish to download data from the entire genus Daphnia from those other sources, such as geographic data from BOLD or GBIF, as your starting point.)
+
+4. Using the species identification, match up your sequence data with the other biological trait or geographical parameter you have chosen to investigate. Or, match up multiple markers from the same taxonomic group (see Jacqueline’s example script from the NCBI lesson) if you choose a question such as example 1c.
+
+5. Data checking and exploration. At all steps, whenever suitable, perform data exploration and quality checking. For example, you might check unique values of factors or categories (such as species names) to check for typos. You might build a histogram of sequence lengths to check for unusual values; I would suggest then to BLAST unusual sequences to explore them further. Explain any cases where you choose to drop a data point. You might also build a sequence alignment, then cluster your sequences, and then visualize the distances among clusters using a dendrogram. Also, address the question: how will you treat missing data for your study?
+
+6. Your main “product” for this assignment is one key visualization. Prepare a visualization that helps you to answer your chosen question. For example, you might map your chosen biological trait or geographical parameter onto your phylogeny, such as by using maximum parsimony or maximum likelihood character mapping. Or, you might prepare a figure that matches up your phylogeny with a map to show the distributions of taxonomic groups or clades. Or, you might prepare a figure that shows two mirror image trees and compares them. You should pay attention to labeling, colours, and symbols. Your visualization should be informative, clear, and visually appealing. Being able to prepare appealing as well as informative visualizations will serve you well in future projects in your graduate program and beyond.
+
+7. Your mini-project should end with one written concluding paragraph. Provide an interpretation of your visualization, referring back to the question that you posed. Also, what further work or statistical test would you perform in the future to answer your question more fully, if you were to expand this mini-project?
+
+8. Commenting and formatting, throughout. Your entire script should be well formatted and well commented. You should make it clear what you are doing and why at each step. Proofread your commenting for clarity, spelling, and grammar.
+
+### Resources
+You may find the following packages and vignettes helpful to consult for ideas. I would suggest perusing the below the links for interesting figures and inspiration before diving into your mini-project. After you select the topic for your mini-project, you would then need to read the R code and documentation for whichever tool you choose to employ. While I encourage you to consult a variety of sources and example code, it will be important to decide for yourself which functions and arguments make sense for your own work. Also, you should cite any sources that you draw from for your project.
+
+package ggtree – many resources for preparing visualizations of trees
+https://yulab-smu.github.io/treedata-book/
+
+package phytools - includes various tree visualizations, including geophylogenies (geography and phylogenies displayed together, the first link), mapping of traits onto phylogenies, and testing for correlations between traits.
+https://www.molecularecologist.com/2014/11/geophylogeny-plots-in-r-for-dummies/
+http://www.phytools.org/Cordoba2017/ex/2/Intro-to-phylogenies.html
+http://www.phytools.org/Cordoba2017/ex/3/PICs.html
+
+package dendextend – has a nice function for comparing two dendrograms using a “tanglegram”. That would be helpful for comparing trees generated using different markers, for example.
+https://www.r-bloggers.com/dendextend-a-package-for-visualizing-adjusting-and-comparing-dendrograms-based-on-a-paper-from-bioinformatics/
+https://cran.r-project.org/web/packages/dendextend/vignettes/introduction.html
+
+
+
+
+## Part C1 - Introduction and biological question
+Define a biological question that interests you and that involves phylogeny. Your script should include a short paragraph at the top that explains your question that you want to answer in your mini-project.
+
+A population is a species group living in a defined geographic region. These populations can live separately from one another when there is little dispersal of individuals between them, pushing the populations towards speciation. The individuals living in the same population are more likely to be more genetically similar to one another than to individuals in a different population. Dispersal of individuals between populations allows gene flow to occur, blurring the lines between “genetically distinct” populations of a single species. This begs the question if populations of highly mobile species, such as birds in the genus Corvidae, can be distinguished from one another based on DNA sequence composition at commonly studied markers such as COI or 16S. One could also ask if these markers would predict geographic distribution of populations in the same manner. These are the questions that I will be investigation for this mini-project.
+
+
+## Part C2 - Phylogenetic hypothesis
+Create a phylogenetic hypothesis for a taxonomic group of your choice. For most class members, I recommend using the phylogeny for the genus Daphnia that you created in Part B as your starting point for Part C. That phylogeny would include one sequence per OTU or per species. For advanced users and/or those seeking a challenge, you are welcome to create your own phylogeny on a taxonomic group of your own choosing.
+```{r Download}
+# Do a search of the nucleotide database for Corvidae 16S and COI genes
+# Using two separate database searches so as to ensure sufficient results of each one
+corvidae_search_16S <- entrez_search(db = "nucleotide", 
+                                 term = "Corvidae[ORGN] AND (16S[TITL] OR 16s[TITL] OR 16 S[TITL]) NOT genome[TITL]", 
+                                 retmax = 100)
+
+corvidae_search_COI <- entrez_search(db = "nucleotide", 
+                                 term = "Corvidae[ORGN] AND (cytochrome oxidase subunit 1[TITL] OR COI[TITL]) NOT genome[TITL]", 
+                                 retmax = 100)
+
+
+# Save time of download (runs in the same RMarkdown chunk as the searches)
+corvi_date <- Sys.time()
+corvi_date
+```
+
+```{r}
+# Let’s look at the search in a bit more detail before continuing
+# Starting with a summary
+(corvidae_summ_16S <- entrez_summary(db = "nucleotide", id = corvidae_search_16S$ids))
+(corvidae_summ_COI <- entrez_summary(db = "nucleotide", id = corvidae_search_COI$ids))
+```
+
+
+```{r}
+# Now let’s look at what organisms our search retained
+extract_from_esummary(corvidae_summ_16S, "organism")
+extract_from_esummary(corvidae_summ_COI, "organism")
+```
+
+
+```{r Hard Disk}
+# Now to fetch the data and save it to a file
+fetch_corvidae_16S <- entrez_fetch(db = "nuccore", id = corvidae_search_16S$ids, rettype = "fasta")
+fetch_corvidae_COI <- entrez_fetch(db = "nuccore", id = corvidae_search_COI$ids, rettype = "fasta")
+
+# Write data to a fasta file
+write(fetch_corvidae_16S, "fetch_corvidae_16S.fasta", sep = "\n") 
+write(fetch_corvidae_COI, "fetch_corvidae_COI.fasta", sep = "\n") 
+```
+
+```{r Data Frame}
+# Now to get the data in a useable format for R
+# Read the data as a string set (we will come back to these later)
+stringset_corvidae_16S <- readDNAStringSet("fetch_corvidae_16S.fasta")
+stringset_corvidae_COI <- readDNAStringSet("fetch_corvidae_COI.fasta")
+
+# We can move the data into a dataframe
+df_corvidae_16S <- data.frame(Title = names(stringset_corvidae_16S), Sequence = paste(stringset_corvidae_16S))
+df_corvidae_COI <- data.frame(Title = names(stringset_corvidae_COI), Sequence = paste(stringset_corvidae_COI))
+```
+
+```{r}
+# Now time to manipulate the data frame so we can more easily interpret the information in the original
+
+# Create a new column with gene name only
+df_corvidae_COI$Gene_Name <- str_extract(df_corvidae_COI$Title, "COI")
+df_corvidae_16S$Gene_Name <- str_extract(df_corvidae_16S$Title, "16S") 
+
+# Create a new column with GenBank accession number
+df_corvidae_COI$Unique_Identifier <- word(df_corvidae_COI$Title, 1L)
+df_corvidae_16S$Unique_Identifier <- word(df_corvidae_16S$Title, 1L)
+
+# Create a new column with species names
+df_corvidae_COI$Species_Name <-  word(df_corvidae_COI$Title, 2L, 3L) 
+df_corvidae_16S$Species_Name <-  word(df_corvidae_16S$Title, 2L, 3L)
+
+# Now we can merge the data frames together so the information for both 16S and COI are in a single data frame
+df_corvidae <- rbind(df_corvidae_COI, df_corvidae_16S)
+View(df_corvidae)
+```
+
+
+```{r Prelim1}
+# Let’s look at the information available in this new data frame in detail
+# How many unique gene names do we have?
+df_corvidae$Gene_Name %>% unique %>% length #2
+# What are they?
+df_corvidae$Gene_Name %>% unique %>% print #"COI" "16S"
+# What is the mean sequence length?
+df_corvidae$Sequence %>% as.character %>% nchar %>% mean #681.1786
+#minimum sequence length
+df_corvidae$Sequence %>% as.character %>% nchar %>% min #368
+#maximum sequence length
+df_corvidae$Sequence %>% as.character %>% nchar %>% max #880
+```
+
+```{r Prelim2}
+#how many species?
+df_corvidae$Species_Name %>% unique %>% length #31
+#how many for each gene???
+
+# We can also look at the nucleotide composition of the sequences in more detail
+# What is the count of each nucleotide?
+ss_corvidae <- df_corvidae$Sequence %>% 
+  DNAStringSet %>% 
+  alphabetFrequency
+# Calculate the proportion of the proportion?
+corvidae_prop <- prop.table(ss_corvidae, 1)
+# Knowing the proportion of inaccurate assignments (not A, C, T, G) can be important to know about sequence quality
+# To find the proportion of certain (columns 1-4) or uncertain bases (columns 5-18) in a sequence, we can take the sum of those columns in each row
+corvidae_prop <- corvidae_prop %>% as.data.frame %>% 
+  mutate(Total_unsure = rowSums(subset(corvidae_prop[,5:18]), na.rm = TRUE), 
+         Total_BP = rowSums(subset(corvidae_prop[,1:4]), na.rm = TRUE), 
+         ID = df_corvidae$Unique_Identifier)
+class(corvidae_prop)
+# How many sequences have a non-zero value each column (indicating the presence of a given base in that sequence)? From the output below, four sequences have N’s and no other uncertain values exist in the data.
+colSums(corvidae_prop != 0)
+```
+
+
+
+### 16S Alignment
+```{r}
+# The alignments for corvidae 16S and COI follow the general process as in Part B for Daphnia
+# Align the stringset with msa function, increase the gap penalty in an attempt to reduce the number/size of gaps introduced into the alignment
+corvidae_aligned_16S <- msa(stringset_corvidae_16S, gapOpening = 20, gapExtension = 20)
+# View the alignment with msaPrettyPrint
+msaPrettyPrint(corvidae_aligned_16S, output = "pdf", showNames = "none", 
+               showLogo = "none", askForOverwrite = FALSE, verbose = FALSE)
+```
+
+
+```{r}
+# Read the alignment as a DNAStringSet so we can look at the alignment in more detail
+corvidae_aligned_stringset_16S <- DNAStringSet(corvidae_aligned_16S)
+# Calculate total length of first sequence, with gaps
+corvidae_aligned_stringset_16S%>% head(n=1) %>% width #total length, with gaps 996
+# Calculate total length of first sequence, without gaps
+stringset_corvidae_16S %>% head(n=1) %>% width #total length, no gaps 769
+```
+
+On average, how many gaps do you have per sequence in your alignment? 
+```{r}
+corvidae_aligned_16S %>% str_count("-") %>% mean #304.225
+```
+
+What is the minimum and maximum number of gaps among the sequences in your alignment? 
+```{r}
+corvidae_aligned_16S %>% str_count("-") %>% min #116
+corvidae_aligned_16S %>% str_count("-") %>% max #628
+```
+
+
+```{r OTU}
+# Add labels to the alignment
+names(corvidae_aligned_stringset_16S) <- df_corvidae_16S$Unique_Identifier
+# Read the alignment as a DNAbin
+corvidae_aligned_dnabin_16S <- as.DNAbin(corvidae_aligned_stringset_16S)
+```
+
+
+```{r}
+# Create a distance matrix to create clusters from
+distmat_corvidae_16S <- dist.dna(corvidae_aligned_dnabin_16S, model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
+# Create the clusters for the dendrogram (from DECIPHER)
+corvidae_Clustered_16S <- IdClusters(distmat_corvidae_16S,
+                  method = "WPGMA",
+                  cutoff = 0.01,
+                  showPlot = FALSE,
+                  type = "both", #this gives us both a data frame with the clusters and the formatted data for the dendrogram
+                  myXStringSet = NULL,
+                  model = MODELS,
+                  collapse = 0,
+                  processors = NULL,
+                  verbose = TRUE)
+# Put the created OTUs into the data frame
+df_corvidae_16S <- mutate(df_corvidae_16S, OTU = corvidae_Clustered_16S[[1]][["cluster"]])
+View(df_corvidae_16S)
+```
+
+```{r}
+# Plot the clusters and export to a jpeg file
+jpeg('original-16S.jpg', width=1300, height=900, unit='px')
+plot(corvidae_Clustered_16S[[2]], ylab = "OTU", xlab = "Distance", horiz=TRUE)
+dev.off()
+```
+```{r}
+jpeg('corvidae_clustered_16S.jpg', width=10000, height=10000, unit='px')
+qgraph::qgraph(1/distmat_corvidae_16S, layout='spring', vsize=3) 
+dev.off()
+```
+Doesn't look like we have any outliers to remove
+
+Randomly select one sequence per (remaining) OTU.
+```{r}
+sample_df_corvidae_16S <- df_corvidae_16S %>% group_by(OTU) %>% sample_n(1)
+View(sample_df_corvidae_16S)
+```
+
+
+```{r}
+# This alignment is a repetition of the previous alignment with the whole dataset
+sample_corvidae_align_16S <- msa(DNAStringSet(sample_df_corvidae_16S$Sequence))
+msa::print(sample_corvidae_align_16S, show="complete")
+sample_corvidae_align_stringset_16S <- DNAStringSet(sample_corvidae_align_16S)
+names(sample_corvidae_align_stringset_16S) <- sample_df_corvidae_16S$Unique_Identifier
+sample_corvidae_align_dnabin_16S <- as.DNAbin(sample_corvidae_align_stringset_16S)
+
+#make the distance matrix
+sample_distmat_corvidae_16S <- sample_corvidae_align_dnabin_16S %>% dist.dna(model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
+# get OTUs and add to the data frame
+sample_corvidae_otu_16S <- IdClusters(sample_distmat_corvidae_16S,
+                  method = "WPGMA",
+                  cutoff = 0.01,
+                  showPlot = FALSE,
+                  type = "both",
+                  myXStringSet = NULL,
+                  model = MODELS,
+                  collapse = 0,
+                  processors = NULL,
+                  verbose = TRUE)
+sample_df_corvidae_16S <- sample_df_corvidae_16S %>% ungroup %>% mutate(phylo = sample_corvidae_otu_16S[[1]][["cluster"]])
+View(sample_df_corvidae_16S)
+```
+
+
+Visualization of  phylogenetic hypothesis.
+```{r Visualizations}
+# Plot and export the new clusters
+jpeg('distmat_sample_corvidae_16S.jpg', width=10000, height=10000, unit='px')
+qgraph::qgraph(1/sample_distmat_corvidae_16S, layout='spring', vsize=3) #no idea if this is right or what it means, but it looks cool
+dev.off()
+```
+```{r}
+jpeg('16S.jpg', width=1300, height=900, unit='px')
+plot(sample_corvidae_otu_16S[[2]], ylab="OTUs", xlab="Distance", horiz=TRUE)
+dev.off()
+```
+
+
+
+### COI Alignment
+Please note that this alignment code has followed the same process as the above code for 16S and thus has been commented less than that of 16S
+```{r Impatient}
+corvidae_aligned_COI <- msa(stringset_corvidae_COI, gapOpening = 20, gapExtension = 20)
+#View the alignment with msaPrettyPrint
+msaPrettyPrint(corvidae_aligned_COI, output = "pdf", showNames = "none", showLogo = "none", askForOverwrite = FALSE, verbose = FALSE)
+```
+
+```{r}
+corvidae_aligned_stringset_COI <- DNAStringSet(corvidae_aligned_COI)
+corvidae_aligned_stringset_COI %>% head(n=1) %>% width #total length, with gaps 699
+stringset_corvidae_COI %>% head(n=1) %>% width #total length, no gaps 694
+```
+
+On average, how many gaps do you have per sequence in your alignment? 
+```{r}
+corvidae_aligned_COI %>% str_count("-") %>% mean #22.06
+```
+
+What is the minimum and maximum number of gaps among the sequences in your alignment? 
+```{r}
+corvidae_aligned_COI %>% str_count("-") %>% min #2
+corvidae_aligned_COI %>% str_count("-") %>% max #94
+```
+
+
+```{r OTUs}
+# Add labels to the data
+names(corvidae_aligned_stringset_COI) <- df_corvidae_COI$Unique_Identifier
+corvidae_aligned_dnabin_COI <- as.DNAbin(corvidae_aligned_stringset_COI)
+```
+
+```{r}
+#for plotting of distance matrix (from DECIPHER)
+distmat_corvidae_COI <- dist.dna(corvidae_aligned_dnabin_COI, model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
+corvidae_Clustered_COI <- IdClusters(distmat_corvidae_COI,
+                  method = "WPGMA",
+                  cutoff = 0.01,
+                  showPlot = FALSE,
+                  type = "both",
+                  myXStringSet = NULL,
+                  model = MODELS,
+                  collapse = 0,
+                  processors = NULL,
+                  verbose = TRUE)
+
+df_corvidae_COI <- mutate(df_corvidae_COI, OTU = corvidae_Clustered_COI[[1]][["cluster"]])
+View(df_corvidae_COI)
+```
+
+```{r}
+# Create and export the dendrogram
+jpeg('COI.jpg', width=1500, height=1500, unit='px')
+plot(corvidae_Clustered_COI[[2]], horiz=TRUE, ylab="OTUs", xlab="Distance")
+dev.off()
+```
+```{r}
+jpeg('corvidae_clustered_COI.jpg', width=10000, height=10000, unit='px')
+qgraph::qgraph(1/distmat_corvidae_COI, layout='spring', vsize=3) 
+dev.off()
+```
+
+Randomly select one sequence per (remaining) OTU.
+```{r}
+sample_df_corvidae_COI <- df_corvidae_COI %>% group_by(OTU) %>% sample_n(1)
+View(sample_df_corvidae_COI)
+```
+
+
+Reconstruct the phylogenetic relationships among members of your final sequence dataset. Explain your choice of phylogenetic reconstruction method and settings.
+```{r}
+#align the samples
+sample_corvidae_align_COI <- msa(DNAStringSet(sample_df_corvidae_COI$Sequence))
+msa::print(sample_corvidae_align_COI, show="complete")
+# Create and label the DNA strings
+sample_corvidae_align_stringset_COI <- DNAStringSet(sample_corvidae_align_COI)
+names(sample_corvidae_align_stringset_COI) <- sample_df_corvidae_COI$Unique_Identifier
+sample_corvidae_align_dnabin_COI <- as.DNAbin(sample_corvidae_align_stringset_COI)
+
+# create the distance matrix
+sample_distmat_corvidae_COI <- sample_corvidae_align_dnabin_COI %>% dist.dna(model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
+# get OTUs and add to the data frame
+sample_corvidae_otu_COI <- IdClusters(sample_distmat_corvidae_COI,
+                  method = "WPGMA",
+                  cutoff = 0.01,
+                  showPlot = FALSE,
+                  type = "both",
+                  myXStringSet = NULL,
+                  model = MODELS,
+                  collapse = 0,
+                  processors = NULL,
+                  verbose = TRUE)
+sample_df_corvidae_COI <- sample_df_corvidae_COI %>% ungroup %>% mutate(phylo = sample_corvidae_otu_COI[[1]][["cluster"]])
+View(sample_df_corvidae_COI)
+```
+
+
+Visualization of  phylogenetic hypothesis.
+```{r Visualization}
+jpeg('distmat_sample_corvidae_COI.jpg', width=10000, height=10000, unit='px')
+qgraph::qgraph(1/sample_distmat_corvidae_COI, layout='spring', vsize=3) #no idea if this is right or what it means, but it looks cool
+dev.off()
+```
+```{r}
+jpeg('COI2.jpg', width=1500, height=1000, unit='px')
+plot(sample_corvidae_otu_COI[[2]], horiz = TRUE, ylab="OTUs", xlab="Distance")
+dev.off()
+```
+
+## Part C3 - Metadata
+Seek out other biological or geographic data for the species in your sequence alignment. Examples could include meta-data from NCBI, geographic data from BOLD, data from GBIF (https://www.gbif.org/), other genetic data from BOLD or GenBank, biological data from a trait dataset (such as Pantheria for mammals or FishBase for fish), or data from another reputable source that you find. (Hint: You might wish to download data from the entire genus Daphnia from those other sources, such as geographic data from BOLD or GBIF, as your starting point.)
+
+
+Have country information here...
+
+For full data set
+```{r}
+#download trait data from NCBI using NCBI_byid from the traits package
+traits_corvidae <- ncbi_byid(c(corvidae_search_COI$ids, corvidae_search_16S$ids))
+View(traits_corvidae) #lots of extra data here that I won't necessarily need for this analysis
+```
+
+```{r}
+#pull only the desired country and lat/long data
+df_corvidae_country <- traits_corvidae %>%
+  dplyr::select(taxon, acc_no, country, lat_lon) #%>% mutate(country = word(traits_corvidae$country, 1L))
+View(df_corvidae_country)
+```
+
+
+For sampled OTUs
+```{r}
+#combine the data frames with the sampled OTUs
+sample_df_corvidae_all <- rbind(sample_df_corvidae_COI, sample_df_corvidae_16S)
+#search for metadata for data frame combined above
+sample_traits_corvidae <- ncbi_byid(sample_df_corvidae_all$Unique_Identifier)
+View(sample_traits_corvidae)
+#take desired location data
+sample_df_corvidae_country <- sample_traits_corvidae %>%
+  dplyr::select(taxon, acc_no, country, lat_lon)
+View(sample_df_corvidae_country)
+```
+
+
+
+## Part C4 - Sequence matching
+Using the species identification, match up your sequence data with the other biological trait or geographical parameter you have chosen to investigate. Or, match up multiple markers from the same taxonomic group (see Jacqueline’s example script from the NCBI lesson) if you choose a question such as example 1c.
+```{r}
+# Add the marker label to the country information to the full data set
+df_corvidae_country$marker <- if (df_corvidae_country$acc_no == df_corvidae$Unique_Identifier) {
+  print(df_corvidae$Gene_Name)
+} 
+
+#add OTU information column to the full data ser
+df_corvidae_country$otu <- rbind(df_corvidae_COI, df_corvidae_16S)$OTU
+
+View(df_corvidae_country)
+```
+
+
+```{r}
+# Now to add marker labels for the sampled OTUs
+sample_df_corvidae_country$marker <- if (sample_df_corvidae_country$acc_no ==
+                                  sample_df_corvidae_all$Unique_Identifier) {
+  print(sample_df_corvidae_all$Gene_Name) #could potentially add other information if desired
+} 
+
+sample_df_corvidae_country <- sample_df_corvidae_country %>% mutate(OTU = sample_df_corvidae_all$phylo)
+
+#Let's look at our new data data frame
+View(sample_df_corvidae_all)
+View(sample_df_corvidae_country)
+```
+
+
+## Part C5 - Data checking and exploration
+At all steps, whenever suitable, perform data exploration and quality checking. For example, you might check unique values of factors or categories (such as species names) to check for typos. You might build a histogram of sequence lengths to check for unusual values; I would suggest then to BLAST unusual sequences to explore them further. Explain any cases where you choose to drop a data point. You might also build a sequence alignment, then cluster your sequences, and then visualize the distances among clusters using a dendrogram. Also, address the question: how will you treat missing data for your study?
+
+Metadata for both the 16S and COI markers were downloaded in the same manner from the NCBI database. Upon checking the metadata, it was found that there was missing geographic information for all 16S sequences and some of the COI sequences. As a result, all those sequences could not be included in the assessment of geographic distribution of the OTUs. In addition, the full dataset including all OTUs (not the sampled data including a single sequence per OTU) in an attempt to maintain a sufficient amount of data when accounting for the missing metadata.
+
+## Part C6 - Visualization
+Your main “product” for this assignment is one key visualization. Prepare a visualization that helps you to answer your chosen question. For example, you might map your chosen biological trait or geographical parameter onto your phylogeny, such as by using maximum parsimony or maximum likelihood character mapping. Or, you might prepare a figure that matches up your phylogeny with a map to show the distributions of taxonomic groups or clades. Or, you might prepare a figure that shows two mirror image trees and compares them. You should pay attention to labeling, colours, and symbols. Your visualization should be informative, clear, and visually appealing. Being able to prepare appealing as well as informative visualizations will serve you well in future projects in your graduate program and beyond.
+
+
+### Creating a map of COI data
+I don't have any lat/lon data for 16S, so we aren't going to map that one. We are also going to work with the full data set because I have decided that the sampled data is too small for these purposes.
+```{r}
+#min/max lat
+(na.exclude(df_corvidae_country$lat_lon) %>% word(1L)) %>% max #66.6
+(na.exclude(df_corvidae_country$lat_lon) %>% word(1L)) %>% min #1.3
+#min/max lon
+(na.exclude(df_corvidae_country$lat_lon) %>% word(3L)) %>% as.numeric %>% max #157.9
+(na.exclude(df_corvidae_country$lat_lon) %>% word(3L)) %>% as.numeric %>% min #34.93
+# Want map bounds lat 70/-1, lon 30/160 to encompass the above min/max lat/lon data on a single map
+
+map_corvidae <- get_map(
+  location = c(left = 30, bottom = -1, right = 160, top = 70),
+  source = "osm",
+  force = TRUE)
+# add force = TRUE to get_map to force a re-rendering of the map
+ggmap(map_corvidae) # Look at the downloaded map
+```
+
+
+```{r}
+# Overlay a scatterplot of latitude/longitude data onto the map from above
+# Isolate the latitude and longitude first into their own columns
+df_corvidae_country$latitude <- df_corvidae_country$lat_lon %>% word(1L) %>% as.numeric 
+df_corvidae_country$longitude <- df_corvidae_country$lat_lon %>% word(3L) %>% as.numeric
+
+# Using ggmap, create the scatterplot (uses ggplot structure)
+ggmap(map_corvidae) +
+  geom_point(data = subset(df_corvidae_country, !is.na(lat_lon)),
+             aes(x = longitude, 
+                 y = latitude, 
+                 color = otu)) + 
+  scale_color_gradientn(colours = rainbow(23))
+
+#how many species are in the subset?
+unique(subset(df_corvidae_country, !is.na(lat_lon))$taxon) %>% length #17
+# 17 is manageable to look at, so I will recreate the above plot with facetting by species
+```
+```{r}
+ggmap(map_corvidae) +
+  geom_point(data = subset(df_corvidae_country, !is.na(lat_lon)),
+             aes(x = longitude, 
+                 y = latitude, 
+                 color = otu)) + 
+  scale_color_gradientn(colours = rainbow(23)) +
+  facet_wrap(~taxon)
+```
+
+## Part C7 - Conclusion
+Your mini-project should end with one written concluding paragraph. Provide an interpretation of your visualization, referring back to the question that you posed. Also, what further work or statistical test would you perform in the future to answer your question more fully, if you were to expand this mini-project?
+
+With the current data set used for this analysis, the questions posed cannot be conclusively answered. Figure 11 shows the geographic distribution of OTUs per species; these OTUs are being considered a proxy for population in cases where there are multiple OTUs per species. Certain species, such as Phyrrhocorax graculus (bottom left in Figure 11), have only a single observation and thus cannot be used to conclude anything about population. Meanwhile, the species with more data points, such as Pica pica or Garrulus glandarius, suggest possible ranges for populations of that species. In a future analysis, more sequences with geographic data will be required to determine if COI can be used to predict population distribution in species from the genus Corvidae. I will also take this opportunity to emphasize the importance of researchers collecting and providing metadata with their sequences. The comparison of the ability of COI and 16S to predict population distribution could not even happen because of the lack of geographic data provided with the 16S sequences.
+
+## Part C8 - Formatting
+The coding sections for this assignment have been exported from RMarkdown, allowing for code to be more readily distinguished from text.
