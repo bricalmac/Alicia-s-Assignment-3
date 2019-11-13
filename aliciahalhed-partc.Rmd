@@ -72,7 +72,7 @@ https://cran.r-project.org/web/packages/dendextend/vignettes/introduction.html
 ## Part C1 - Introduction and biological question
 Define a biological question that interests you and that involves phylogeny. Your script should include a short paragraph at the top that explains your question that you want to answer in your mini-project.
 
-A population is a species group living in a defined geographic region. These populations can live separately from one another when there is little dispersal of individuals between them, pushing the populations towards speciation. The individuals living in the same population are more likely to be more genetically similar to one another than to individuals in a different population. Dispersal of individuals between populations allows gene flow to occur, blurring the lines between “genetically distinct” populations of a single species. This begs the question if populations of highly mobile species, such as birds in the genus Corvidae, can be distinguished from one another based on DNA sequence composition at commonly studied markers such as COI or 16S. One could also ask if these markers would predict geographic distribution of populations in the same manner. These are the questions that I will be investigation for this mini-project.
+A population is a species group living in a defined geographic region. These populations can live separately from one another when there is little dispersal of individuals between them, pushing the populations towards speciation. The individuals living in the same population are more likely to be more genetically similar to one another than to individuals in a different population. Dispersal of individuals between populations allows gene flow to occur, blurring the lines between “genetically distinct” populations of a single species. This begs the question if populations of highly mobile species, such as birds in the genus Corvidae, can be distinguished from one another based on DNA sequence composition at commonly studied markers such as COI or 16S. One could also ask if these markers would predict geographic distribution of populations in the same manner. These are the questions that I will be investigating for this mini-project.
 
 
 ## Part C2 - Phylogenetic hypothesis
@@ -168,8 +168,11 @@ df_corvidae$Sequence %>% as.character %>% nchar %>% max #880
 ```{r Prelim2}
 #how many species?
 df_corvidae$Species_Name %>% unique %>% length #31
-#how many for each gene???
-
+#how many for each gene??? #This was missing from the original file, with a blank line following.
+df_corvidae %>% 
+  group_by(Gene_Name) %>% 
+  summarize(count = length(unique(Species_Name))) %>%
+  arrange(desc(count)) #equal amount for both (20)
 # We can also look at the nucleotide composition of the sequences in more detail
 # What is the count of each nucleotide?
 ss_corvidae <- df_corvidae$Sequence %>% 
@@ -208,11 +211,18 @@ corvidae_aligned_stringset_16S <- DNAStringSet(corvidae_aligned_16S)
 corvidae_aligned_stringset_16S%>% head(n=1) %>% width #total length, with gaps 996
 # Calculate total length of first sequence, without gaps
 stringset_corvidae_16S %>% head(n=1) %>% width #total length, no gaps 769
+
+#Length of first sequence, alternate counting
+length(corvidae_aligned_stringset_16S[[1]]) #996
+#Length first sequence, counting only nucleotides
+str_count(corvidae_aligned_stringset_16S[[1]], "[ATCG]") #No gaps, only nucleotides = 811
 ```
 
 On average, how many gaps do you have per sequence in your alignment? 
 ```{r}
 corvidae_aligned_16S %>% str_count("-") %>% mean #304.225
+#Summary function gives values for min, max, and mean number of gaps in alignment, fewer lines of code?
+summary(str_count(corvidae_aligned_stringset_16S, "-")) #304.2
 ```
 
 What is the minimum and maximum number of gaps among the sequences in your alignment? 
@@ -264,6 +274,7 @@ Doesn't look like we have any outliers to remove
 
 Randomly select one sequence per (remaining) OTU.
 ```{r}
+set.seed(717) #retain the same sampling for each run through
 sample_df_corvidae_16S <- df_corvidae_16S %>% group_by(OTU) %>% sample_n(1)
 View(sample_df_corvidae_16S)
 ```
@@ -306,6 +317,7 @@ dev.off()
 jpeg('16S.jpg', width=1300, height=900, unit='px')
 plot(sample_corvidae_otu_16S[[2]], ylab="OTUs", xlab="Distance", horiz=TRUE)
 dev.off()
+#Above dendrogram plot has a large distance value (1.5): due to sparse data in 16S, thus greater distance/dissimilarity? 
 ```
 
 
@@ -374,6 +386,7 @@ dev.off()
 
 Randomly select one sequence per (remaining) OTU.
 ```{r}
+set.seed(817) #retain same sampling each time
 sample_df_corvidae_COI <- df_corvidae_COI %>% group_by(OTU) %>% sample_n(1)
 View(sample_df_corvidae_COI)
 ```
@@ -512,40 +525,3 @@ map_corvidae <- get_map(
 # add force = TRUE to get_map to force a re-rendering of the map
 ggmap(map_corvidae) # Look at the downloaded map
 ```
-
-
-```{r}
-# Overlay a scatterplot of latitude/longitude data onto the map from above
-# Isolate the latitude and longitude first into their own columns
-df_corvidae_country$latitude <- df_corvidae_country$lat_lon %>% word(1L) %>% as.numeric 
-df_corvidae_country$longitude <- df_corvidae_country$lat_lon %>% word(3L) %>% as.numeric
-
-# Using ggmap, create the scatterplot (uses ggplot structure)
-ggmap(map_corvidae) +
-  geom_point(data = subset(df_corvidae_country, !is.na(lat_lon)),
-             aes(x = longitude, 
-                 y = latitude, 
-                 color = otu)) + 
-  scale_color_gradientn(colours = rainbow(23))
-
-#how many species are in the subset?
-unique(subset(df_corvidae_country, !is.na(lat_lon))$taxon) %>% length #17
-# 17 is manageable to look at, so I will recreate the above plot with facetting by species
-```
-```{r}
-ggmap(map_corvidae) +
-  geom_point(data = subset(df_corvidae_country, !is.na(lat_lon)),
-             aes(x = longitude, 
-                 y = latitude, 
-                 color = otu)) + 
-  scale_color_gradientn(colours = rainbow(23)) +
-  facet_wrap(~taxon)
-```
-
-## Part C7 - Conclusion
-Your mini-project should end with one written concluding paragraph. Provide an interpretation of your visualization, referring back to the question that you posed. Also, what further work or statistical test would you perform in the future to answer your question more fully, if you were to expand this mini-project?
-
-With the current data set used for this analysis, the questions posed cannot be conclusively answered. Figure 11 shows the geographic distribution of OTUs per species; these OTUs are being considered a proxy for population in cases where there are multiple OTUs per species. Certain species, such as Phyrrhocorax graculus (bottom left in Figure 11), have only a single observation and thus cannot be used to conclude anything about population. Meanwhile, the species with more data points, such as Pica pica or Garrulus glandarius, suggest possible ranges for populations of that species. In a future analysis, more sequences with geographic data will be required to determine if COI can be used to predict population distribution in species from the genus Corvidae. I will also take this opportunity to emphasize the importance of researchers collecting and providing metadata with their sequences. The comparison of the ability of COI and 16S to predict population distribution could not even happen because of the lack of geographic data provided with the 16S sequences.
-
-## Part C8 - Formatting
-The coding sections for this assignment have been exported from RMarkdown, allowing for code to be more readily distinguished from text.
