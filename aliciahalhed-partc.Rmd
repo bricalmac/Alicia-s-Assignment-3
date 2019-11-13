@@ -525,3 +525,220 @@ map_corvidae <- get_map(
 # add force = TRUE to get_map to force a re-rendering of the map
 ggmap(map_corvidae) # Look at the downloaded map
 ```
+
+```{r}
+# Overlay a scatterplot of latitude/longitude data onto the map from above
+# Isolate the latitude and longitude first into their own columns
+df_corvidae_country$latitude <- df_corvidae_country$lat_lon %>% word(1L) %>% as.numeric 
+df_corvidae_country$longitude <- df_corvidae_country$lat_lon %>% word(3L) %>% as.numeric
+
+# Using ggmap, create the scatterplot (uses ggplot structure)
+ggmap(map_corvidae) +
+  geom_point(data = subset(df_corvidae_country, !is.na(lat_lon)),
+             aes(x = longitude, 
+                 y = latitude, 
+                 color = otu)) + 
+  scale_color_gradientn(colours = rainbow(23))
+
+#how many species are in the subset?
+unique(subset(df_corvidae_country, !is.na(lat_lon))$taxon) %>% length #17
+# 17 is manageable to look at, so I will recreate the above plot with facetting by species
+```
+```{r B edit GeoPhyloPlot}
+#Maybe a geophyloplot would be a better visual?
+#If there was coordinate data for 16S specimens, since the clustering for each the 16S and COI was done separately, OTU data given to both of these clusters might show erroneous similarities (OTU groupings are numeric, from 1-n). However, because the 16S data was void in coordinate data, specimens' sequences from both markercodes aren't compared geographically. 
+
+#Load packages
+install.packages("phytools")
+install.packages("mapdata")
+library(mapdata)
+library(phytools)
+#library(dendextend) #didn't use
+install.packages("phylogram") #Nedded to convert 'dendrogram' object to 'phylo'
+library("phylogram")
+
+#New data frame with only specimens with coordinate data
+B_df_corvidae_coordinate <- df_corvidae_country %>%
+  filter(!is.na(lat_lon))
+
+#Phylogeneic tree for COI
+dend.COI <- sample_corvidae_otu_COI[[2]]
+class(dend.COI) #dendrogram
+dendrogram.COI <- as.dendrogram(dend.COI) #dendrogram
+#labels in dendrogram
+labels(dendrogram.COI) #this gives the Unique identifiers for each OTU
+#labels(dendrogram.COI) <- c(sample_df_corvidae_COI$OTU) #not done because order is wrong
+
+
+
+phylo.OTU <- as.phylo(dendrogram.COI) #convert dendrogram --> phylo object
+class(phylo.OTU) #phylo object
+
+#create smaller dendrogram with coordinate data
+#Store values to subset from in vector
+vc <- sample_df_corvidae_COI$Unique_Identifier
+#collect only coordinate data from unique identifiers in the COI sample
+B_df_ID_coor <- B_df_corvidae_coordinate[B_df_corvidae_coordinate$acc_no %in% vc, ]
+#Subset the coordinate data for appropriate setup for phylo.to.map
+B_coords <- subset(B_df_ID_coor, select=c("acc_no","latitude", "longitude"))
+#set rownames to unique IDs
+row.names(B_coords) <- B_coords$acc_no
+#Remove acc_no column
+B_coords_tip <- subset(B_coords, select=c("latitude","longitude"))
+#Create geophyloplot
+geo_COI <- phylo.to.map(phylo.OTU, B_coords_tip, plot=FALSE)
+plot(geo_COI,ftype="i") #Error in colors[cw$tip.label, ] : subscript out of bounds
+
+#Perhaps we have sampled data from original alignment that is missing coordinate data
+nrow(B_coords_tip) # 21
+nrow(B_df_ID_coor) #21
+nrow(sample_df_corvidae_COI) #27
+#Numbers don't match up! Can't complete geophyloplot
+```
+
+```{r B EDIT Recreate COI dataframe with coordinate data}
+#take coordinate data and add it to sequence data
+#first duplicate sequence data frame to retain original for upstream analysis
+BM_df_COI <- df_corvidae_COI
+#Now add coordinate data by matching acc_no and Unique_Identifier
+BM_df_COI$lat <- if (BM_df_COI$Unique_Identifier %in%
+                                  df_corvidae_country$acc_no) {
+  print(df_corvidae_country$latitude) 
+} 
+
+BM_country <- df_corvidae_country
+
+BM_country$Sequence <- if (BM_country$acc_no %in%
+                                  BM_df_COI$Unique_Identifier) { print(BM_df_COI$Sequence)} 
+
+#Unequal row numbers, make them even
+nrow(BM_country) #140
+nrow(BM_df_COI) #100
+#Add 40 emtpy rows to sequence dataframe
+BM_df_COI[nrow(BM_df_COI)+40,] <- NA
+nrow(BM_df_COI) #140
+
+#error message in type so change to character vector
+BM_df_COI$Sequence <- as.character(BM_df_COI$Sequence) 
+#attach sequence data to coordinate data
+BM_country$Sequence <- if (BM_country$acc_no %in%
+                                  BM_df_COI$Unique_Identifier) { print(BM_df_COI$Sequence)}
+
+#filter NAs
+BM_country_filter <- BM_country %>%
+  filter(!is.na(latitude|longitude))
+```
+
+```{r B EDIT Check OTU}
+unique(BM_country_filter$otu) #missing some OTUs after removing those without coordinate data
+length(unique(BM_country_filter$otu)) #23 of 27 otus remain
+```
+
+```{r Alignment, distance matrix, clustering for new dataset}
+#Can't use above dataset for teh geophyloplot, as it's missing OTU information
+#Align as above
+B_align <- msa(DNAStringSet(BM_country_filter$Sequence))
+B_align_stringset <- DNAStringSet(B_align)
+names(B_align_stringset) <- BM_country_filter$acc_no
+B_align_dnabin <- as.DNAbin(B_align_stringset)
+
+#Distance Matrix
+B_distmatrix <- dist.dna(B_align_dnabin,
+                         model = "TN93",
+                         as.matrix = T,
+                         pairwise.deletion = T)
+#Get clustered OTUs
+B_cluster <- IdClusters(B_distmatrix,
+                  method = "WPGMA",
+                  cutoff = 0.01,
+                  showPlot = FALSE,
+                  type = "both",
+                  myXStringSet = NULL,
+                  model = MODELS,
+                  collapse = 0,
+                  processors = NULL,
+                  verbose = TRUE)
+BM_country_filter <- BM_country_filter %>% ungroup %>% mutate(phylo = B_cluster[[1]][["cluster"]])
+```
+
+```{r B EDIT Dendrogram}
+B_cluster[[2]] %>% plot
+```
+```{r B EDIT sample 1 phylo}
+set.seed(2021) #retain same sampling each time
+B_sample <- BM_country_filter %>% group_by(phylo) %>% sample_n(1)
+View(B_sample)
+```
+
+```{r B EDIT sample data}
+#Repeat for sample as above
+#alignment
+B_sample_align <- msa(DNAStringSet(B_sample$Sequence))
+B_sample_align_stringset <- DNAStringSet(B_sample_align)
+names(B_sample_align_stringset) <- B_sample$acc_no
+B_sample_align_dnabin <- as.DNAbin(B_sample_align_stringset)
+
+#make the distance matrix
+B_distmatrix_samp <- B_sample_align_dnabin %>% dist.dna(model = "TN93", as.matrix = TRUE, pairwise.deletion = TRUE)
+# get OTUs and add to the data frame
+B_cluster_samp <- IdClusters(B_distmatrix_samp,
+                  method = "WPGMA",
+                  cutoff = 0.01,
+                  showPlot = FALSE,
+                  type = "both",
+                  myXStringSet = NULL,
+                  model = MODELS,
+                  collapse = 0,
+                  processors = NULL,
+                  verbose = TRUE)
+B_sample <- B_sample %>% ungroup %>% mutate(OTU2 = B_cluster_samp[[1]][["cluster"]])
+View(B_sample)
+```
+
+```{r B EDIT dendrogram to phylo}
+B_dend <- B_cluster_samp[[2]]
+class(B_dend) #dendrogram
+labels(B_dend)
+B_phylo <- as.phylo(B_dend)
+class(B_phylo)
+```
+
+```{r B EDIT create coordinate dataframe, Geophyloplot}
+#Subset the coordinate data for appropriate setup for phylo.to.map
+B_geo <- subset(B_sample, select=c("acc_no","latitude", "longitude"))
+#set rownames to unique IDs
+row.names(B_geo) <- B_geo$acc_no
+#Remove acc_no column
+B_geo_tip <- subset(B_geo, select=c("latitude","longitude"))
+#Create geophyloplot
+geo_map <- phylo.to.map(B_phylo, B_geo_tip, plot=FALSE)
+plot(geo_map,ftype="i")
+```
+
+```{r B EDIT Geohpyloplot colour improvement}
+#improve colours
+cols<-setNames(sample(rainbow(n=Ntip(B_phylo))),
+    B_phylo$tip.label)
+plot(geo_map,colors=cols,ftype="i",fsize=0.6,cex.points=c(0.7,1.2))
+```
+```{r B EDIT Zoom into Geoplyloplot}
+#Better, but we could narrow the map down to specific area:
+geo_map_zoom <- phylo.to.map(B_phylo, B_geo_tip, database="world", xlim=c(30,160), ylim=c(-1,70), plot=FALSE)
+plot(geo_map_zoom,colors=cols,ftype="i",fsize=0.6,cex.points=c(0.7,1.2))
+```
+```{r}
+ggmap(map_corvidae) +
+  geom_point(data = subset(df_corvidae_country, !is.na(lat_lon)),
+             aes(x = longitude, 
+                 y = latitude, 
+                 color = otu)) + 
+  scale_color_gradientn(colours = rainbow(23)) +
+  facet_wrap(~taxon)
+```
+## Part C7 - Conclusion
+Your mini-project should end with one written concluding paragraph. Provide an interpretation of your visualization, referring back to the question that you posed. Also, what further work or statistical test would you perform in the future to answer your question more fully, if you were to expand this mini-project?
+
+With the current data set used for this analysis, the questions posed cannot be conclusively answered. Figure 11 shows the geographic distribution of OTUs per species; these OTUs are being considered a proxy for population in cases where there are multiple OTUs per species. Certain species, such as Phyrrhocorax graculus (bottom left in Figure 11), have only a single observation and thus cannot be used to conclude anything about population. Meanwhile, the species with more data points, such as Pica pica or Garrulus glandarius, suggest possible ranges for populations of that species. In a future analysis, more sequences with geographic data will be required to determine if COI can be used to predict population distribution in species from the genus Corvidae. I will also take this opportunity to emphasize the importance of researchers collecting and providing metadata with their sequences. The comparison of the ability of COI and 16S to predict population distribution could not even happen because of the lack of geographic data provided with the 16S sequences.
+
+## Part C8 - Formatting
+The coding sections for this assignment have been exported from RMarkdown, allowing for code to be more readily distinguished from text.
